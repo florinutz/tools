@@ -1,5 +1,8 @@
 #!/bin/bash
 
+FD_FLAGS="${FD_FLAGS:---type f --extension go --extension java --extension kt --extension tf}"
+FD_FLAGS_ARRAY=(${=FD_FLAGS})
+
 say() {
   echo -e "\n$(tput setaf 2)--> $1$(tput sgr0)\n"
 }
@@ -18,51 +21,40 @@ check_github_token() {
   fi
 }
 
-get_basic_repo_info() {
-  say "Repo info for $(basename `git rev-parse --show-toplevel`)"
-  say "Lines of Code:"
-  cloc .
-  say "Number of Commits:"
-  git rev-list --count HEAD
-  say "Date of First Commit:"
-  echo $(git log --reverse --format="%ad" --date=short | head -n 1)
-  say "Date of Last Commit:"
-  echo $(git log -1 --format="%ad" --date=short)
-  say "Number of Contributors:"
-  git shortlog -sn | wc -l
-}
-
-get_commit_and_change_info() {
+get_insights() {
+  local years=${1:-3}
+  say "The $(basename `git rev-parse --show-toplevel`) repo
+  has $(git shortlog -sn | wc -l) contributors and
+  $(git rev-list --count HEAD) commits.
+  First one was on $(git log --reverse --format="%ad" --date=short | head -n 1)
+  and the last one was on $(git log -1 --format="%ad" --date=short).
+  Its size is $(git count-objects -vH | grep "size-pack" | awk '{print $2 " " $3}').
+  The repo has $(git tag --list | wc -l) tags and $(git branch -a | wc -l) branches."
+  say "10 largest files:"
+  fd "${FD_FLAGS_ARRAY[@]}" -t f | xargs du -h | sort -rh | head -10
+  say "10 most recently modified repo files:"
+  fd "${FD_FLAGS_ARRAY[@]}" -t f --exec git log -1 --format="%ai {}" {} | sort | tail -10
   say "Top Contributors by Number of Commits:"
   git shortlog -sn | head -10
   say "Latest 5 commits:"
   git log --pretty=format:"%h - %an, %ar : %s" --graph -n 5 | cat
-  say "Changes over the last 2 years:"
-  git log --since="2 year ago" --pretty=tformat: --numstat | awk '{ add += $1; subs += $2; loc += $1 - $2 } END { printf "\033[1;32mAdded lines: %s, Removed lines: %s, Total lines: %s\033[0m\n", add, subs, loc }' | cat
-}
-
-get_file_info() {
+  say "Changes over the last $years years:"
+  git log --since="$years years ago" --pretty=tformat: --numstat | awk '{ add += $1; subs += $2; loc += $1 - $2 } END { printf "\033[1;32mAdded lines: %s, Removed lines: %s, Total lines: %s\033[0m\n", add, subs, loc }' | cat
   say "Most Changed Files:"
-  git log --name-only --pretty=format: | sort | uniq -c | sort -nr | head -10 | cat
-  say "Largest Files:"
-  find . -type f -exec du -h {} + | sort -rh | head -10
-}
-
-get_git_info() {
+  git log --name-only --pretty=format: | grep -v '^$' | sort | uniq -c | sort -nr | head -10
   say "Latest Tags:"
   git tag --sort=-creatordate | head -10
   say "Branches:"
-  git branch -a | cat
-  say "Remote Repositories:"
+  git branch -a | grep -v "dependabot" | cat
+  say "Remotes:"
   git remote -v
-  say "Hottest 5 paths over the last 3 years:"
-  git log --since="3 years ago" --name-only --pretty=format:"%h - %an, %ar : %s" | sort | uniq -c | sort -nr | head -5
+  say "Hottest (most changed) paths over the last $years years:"
+  git log --since="$years years ago" --name-only --pretty=format:"%h - %an, %ar : %s" | sort | uniq -c | sort -nr | head -10
 }
 
-get_github_info() {
+get_github_insights() {
   check_gh_auth
   check_github_token
-
   say "GitHub Repository Info:"
   GH_PAGER="" gh repo view --json name,description,defaultBranchRef --jq '. | "Name: \(.name)\nDescription: \(.description)\nDefault Branch: \(.defaultBranchRef.name)"'
   say "Last 10 Closed Pull Requests:"
@@ -76,10 +68,9 @@ get_github_info() {
 }
 
 repo_info() {
-  get_basic_repo_info
-  get_commit_and_change_info
-  get_file_info
-  get_git_info
-  get_github_info
+  get_insights 3
+  get_github_insights
+  say "Lines of Code:"
+  cloc .
   echo -e "\n"
 }
