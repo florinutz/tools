@@ -1,11 +1,23 @@
 #!/bin/bash
 
-# Helper function to print messages
 say() {
   echo -e "\n$(tput setaf 2)--> $1$(tput sgr0)\n"
 }
 
-# Function to get basic repo info
+check_gh_auth() {
+  if ! gh auth status &>/dev/null; then
+    say "GitHub CLI is not authenticated. Please run 'gh auth login' to authenticate."
+    exit 1
+  fi
+}
+
+check_github_token() {
+  if [ -n "$GITHUB_TOKEN" ]; then
+    say "GITHUB_TOKEN is set. Unsetting it to avoid authentication errors."
+    unset GITHUB_TOKEN
+  fi
+}
+
 get_basic_repo_info() {
   say "Repo info for $(basename `git rev-parse --show-toplevel`)"
   say "Lines of Code:"
@@ -20,7 +32,6 @@ get_basic_repo_info() {
   git shortlog -sn | wc -l
 }
 
-# Function to get commit and change info
 get_commit_and_change_info() {
   say "Top Contributors by Number of Commits:"
   git shortlog -sn | head -10
@@ -30,7 +41,6 @@ get_commit_and_change_info() {
   git log --since="2 year ago" --pretty=tformat: --numstat | awk '{ add += $1; subs += $2; loc += $1 - $2 } END { printf "\033[1;32mAdded lines: %s, Removed lines: %s, Total lines: %s\033[0m\n", add, subs, loc }' | cat
 }
 
-# Function to get file info
 get_file_info() {
   say "Most Changed Files:"
   git log --name-only --pretty=format: | sort | uniq -c | sort -nr | head -10 | cat
@@ -38,7 +48,6 @@ get_file_info() {
   find . -type f -exec du -h {} + | sort -rh | head -10
 }
 
-# Function to get git info
 get_git_info() {
   say "Latest Tags:"
   git tag --sort=-creatordate | head -10
@@ -50,8 +59,10 @@ get_git_info() {
   git log --since="3 years ago" --name-only --pretty=format:"%h - %an, %ar : %s" | sort | uniq -c | sort -nr | head -5
 }
 
-# Function to get GitHub info
 get_github_info() {
+  check_gh_auth
+  check_github_token
+
   say "GitHub Repository Info:"
   GH_PAGER="" gh repo view --json name,description,defaultBranchRef --jq '. | "Name: \(.name)\nDescription: \(.description)\nDefault Branch: \(.defaultBranchRef.name)"'
   say "Last 10 Closed Pull Requests:"
@@ -64,7 +75,6 @@ get_github_info() {
   GH_PAGER="" gh pr list --state all --json reviews --jq '[.[] | .reviews[].author.login] | group_by(.) | map({reviewer: .[0], count: length}) | sort_by(.count) | reverse | .[] | "\(.reviewer): \(.count) reviews"' | head -10
 }
 
-# Main function to get all repo info
 repo_info() {
   get_basic_repo_info
   get_commit_and_change_info
@@ -73,6 +83,3 @@ repo_info() {
   get_github_info
   echo -e "\n"
 }
-
-# Execute the main function
-repo_info
