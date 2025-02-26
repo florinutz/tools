@@ -76,111 +76,44 @@ function s3_queue_logs() {
   done
 }
 
-create_intellij_project() {
-    # Configuration variables with defaults
-    local project_dir="${1:-$(pwd)}"
-    local project_name="${2:-$(basename "$project_dir")}"
-    local jdk_version="${3:-22}"
-    local project_type="${4:-BASIC}"
-    local idea_dir="$project_dir/.idea"
-
-    # Create .idea directory
-    if ! mkdir -p "$idea_dir"; then
-        echo "Error: Failed to create IntelliJ IDEA configuration directory $idea_dir." >&2
-        return 1
-    fi
-
-    # Create file types configuration
-    create_filetypes_xml() {
-        cat > "$idea_dir/fileTypes.xml" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="FileTypeManager">
-    <extensionMap>
-      <mapping pattern="*" type="JSON" />
-      <mapping ext="*" type="JSON" />
-    </extensionMap>
-  </component>
-</project>
-EOF
-    }
-
-    # Create misc configuration
-    create_misc_xml() {
-        cat > "$idea_dir/misc.xml" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="ProjectRootManager" version="2" languageLevel="JDK_${jdk_version}" default="true" project-jdk-type="JavaSDK">
-    <output url="file://$project_dir/out" />
-  </component>
-  <component name="ProjectType">
-    <option name="id" value="${project_type}" />
-  </component>
-</project>
-EOF
-    }
-
-    # Create workspace configuration
-    create_workspace_xml() {
-        local project_id=$(uuidgen | tr -d '-')
-        cat > "$idea_dir/workspace.xml" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="ProjectId" id="${project_id}" />
-  <component name="ProjectName">
-    <name>${project_name}</name>
-  </component>
-  <component name="ProjectViewState">
-    <option name="hideEmptyMiddlePackages" value="true" />
-    <option name="showLibraryContents" value="true" />
-  </component>
-</project>
-EOF
-    }
-
-    # Create all config files
-    create_filetypes_xml
-    create_misc_xml
-    create_workspace_xml
-
-    echo "IntelliJ IDEA project configuration created successfully in $idea_dir"
-    return 0
-}
-
 qidea() {
     local date_path=$(date +%Y/%m/%d)
     local target_dir=~/Downloads/buckets/$date_path
     local bucket_name="test:queue-history-handler-service-test"
+    local tmp_dir
 
-    # Project configuration
-    local project_name="QueueViewer-${date_path//\//-}"
-    local jdk_version=22
-    local project_type="BASIC"
+    # Check if any symlink exists in the target_dir and use it to determine tmp_dir
+    if [[ -d "$target_dir" && $(find "$target_dir" -type l | wc -l) -gt 0 ]]; then
+        tmp_dir=$(dirname "$(readlink -f "$(find "$target_dir" -type l | head -n 1)")")
+    else
+        tmp_dir=$(mktemp -d)
+    fi
 
-    # Create target directory
     if ! mkdir -p "$target_dir"; then
         echo "Error: Failed to create target directory $target_dir." >&2
         return 1
     fi
 
-    # Sync the S3 bucket directory
-    if ! rclone sync "$bucket_name/$date_path/" "$target_dir" --progress --ignore-existing; then
+    if ! rclone sync "$bucket_name/$date_path/" "$tmp_dir" --progress --ignore-existing; then
         echo "Error: Failed to sync S3 bucket." >&2
         return 1
     fi
 
-    # Create IntelliJ IDEA project configuration
-    if ! create_intellij_project "$target_dir" "$project_name" "$jdk_version" "$project_type"; then
-        echo "Error: Failed to create IntelliJ IDEA project configuration." >&2
-        return 1
-    fi
+    find "$target_dir" -type l -exec rm -f {} \;
 
-    # Launch IntelliJ IDEA
+    for file in "$tmp_dir"/*; do
+        if [[ -f "$file" ]]; then
+            local base_name=$(basename "$file")
+            ln -s "$file" "$target_dir/$base_name.json"
+            touch -r "$file" "$target_dir/$base_name.json" # use the timestamp of the original file
+        fi
+    done
+
     if ! idea "$target_dir"; then
         echo "Error: Failed to open IntelliJ IDEA." >&2
         return 1
     fi
 
-    echo "Sync completed successfully and IntelliJ IDEA launched with directory $target_dir"
+    echo "Sync completed successfully, files symlinked, and IntelliJ IDEA launched with directory $target_dir"
     return 0
 }
