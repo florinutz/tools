@@ -82,38 +82,63 @@ qidea() {
     local bucket_name="test:queue-history-handler-service-test"
     local tmp_dir
 
+    echo "Starting qidea function execution..."
+    echo "Target directory: $target_dir"
+    echo "Bucket name: $bucket_name"
+    echo "Date path: $date_path"
+
     # Check if any symlink exists in the target_dir and use it to determine tmp_dir
     if [[ -d "$target_dir" && $(find "$target_dir" -type l | wc -l) -gt 0 ]]; then
         tmp_dir=$(dirname "$(readlink -f "$(find "$target_dir" -type l | head -n 1)")")
+        if [[ ! -d "$tmp_dir" ]]; then
+            echo "Source of existing symlinks is no longer present. Cleaning up symlinks..."
+            find "$target_dir" -type l -exec rm {} +
+            tmp_dir=$(mktemp -d)
+            echo "Created new temporary directory: $tmp_dir"
+        else
+            echo "Found existing symlinks. Temp directory set to: $tmp_dir"
+        fi
     else
         tmp_dir=$(mktemp -d)
+        echo "Created new temporary directory: $tmp_dir"
     fi
 
     if ! mkdir -p "$target_dir"; then
         echo "Error: Failed to create target directory $target_dir." >&2
         return 1
+    else
+        echo "Target directory $target_dir created successfully."
     fi
 
-    if ! rclone sync "$bucket_name/$date_path/" "$tmp_dir" --progress --ignore-existing; then
+    echo "Starting rclone sync from bucket $bucket_name to temp directory $tmp_dir..."
+    if ! rclone sync "$bucket_name/$date_path/" "$tmp_dir" --progress --ignore-existing --transfers 4 --checkers 8; then
         echo "Error: Failed to sync S3 bucket." >&2
         return 1
+    else
+        echo "rclone sync completed successfully."
     fi
 
-    find "$target_dir" -type l -exec rm -f {} \;
-
+    echo "Processing files in temp directory: $tmp_dir"
     for file in "$tmp_dir"/*; do
         if [[ -f "$file" ]]; then
             local base_name=$(basename "$file")
-            ln -s "$file" "$target_dir/$base_name.json"
-            touch -r "$file" "$target_dir/$base_name.json" # use the timestamp of the original file
+            local symlink_path="$target_dir/$base_name.json"
+
+            # Check if the symlink already exists
+            if [[ ! -e "$symlink_path" ]]; then
+                ln -s "$file" "$symlink_path"
+                touch -r "$file" "$symlink_path" # use the timestamp of the original file
+            fi
         fi
     done
 
+    echo "Launching IntelliJ IDEA with directory: $target_dir"
     if ! idea "$target_dir"; then
         echo "Error: Failed to open IntelliJ IDEA." >&2
         return 1
     fi
 
-    echo "Sync completed successfully, files symlinked, and IntelliJ IDEA launched with directory $target_dir"
+    printf "Sync completed successfully:\n\n\tfrom %s\n\n\tto %s\n" "${tmp_dir}" "${target_dir}"
+
     return 0
 }
