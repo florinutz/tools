@@ -131,6 +131,11 @@ qidea() {
             fi
         fi
     done
+    
+    
+    if [[ "$1" == "pull" ]]; then
+        return 0
+    fi
 
     echo "Launching IntelliJ IDEA with directory: $target_dir"
     if ! idea "$target_dir"; then
