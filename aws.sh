@@ -78,14 +78,13 @@ function s3_queue_logs() {
 
 qidea() {
     local date_path=$(date +%Y/%m/%d)
-    local target_dir=~/Downloads/buckets/$date_path
+    local target_dir="$PWD/buckets/$date_path"
     local bucket_name="test:queue-history-handler-service-test"
     local tmp_dir
 
     echo "Starting qidea function execution..."
     echo "Target directory: $target_dir"
     echo "Bucket name: $bucket_name"
-    echo "Date path: $date_path"
 
     # Check if any symlink exists in the target_dir and use it to determine tmp_dir
     if [[ -d "$target_dir" && $(find "$target_dir" -type l | wc -l) -gt 0 ]]; then
