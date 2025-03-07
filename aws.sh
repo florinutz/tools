@@ -78,7 +78,7 @@ function s3_queue_logs() {
 
 qidea() {
     local date_path=$(date +%Y/%m/%d)
-    local target_dir="$PWD/buckets/$date_path"
+    local target_dir="$(pwd)/buckets/$date_path"
     local bucket_name="test:queue-history-handler-service-test"
     local tmp_dir
 
