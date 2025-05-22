@@ -265,21 +265,13 @@ create_symlinks() {
     log 1 "Processing files in temp directory: ${TMP_DIR}"
 
     for file in "${TMP_DIR}"/*; do
-        if [[ -f "${file}" ]]; then
+        local symlink_path="${TARGET_DIR}/${file##*/}.json"
+        if [[ -f "${file}" ]] && [[ ! -e "${symlink_path}" ]]; then
             ((file_count++))
-            local base_name
-            base_name=$(basename "${file}")
-            local symlink_path="${TARGET_DIR}/${base_name}.json"
-
-            # Check if the symlink already exists
-            if [[ ! -e "${symlink_path}" ]]; then
-                ln -s "${file}" "${symlink_path}"
-                touch -r "${file}" "${symlink_path}" # use the timestamp of the original file
-                ((new_symlinks++))
-                log 3 "Created symlink: ${symlink_path} -> ${file}" "DEBUG"
-            else
-                log 3 "Symlink already exists: ${symlink_path}" "DEBUG"
-            fi
+            ln -s "${file}" "${symlink_path}"
+            touch -r "${file}" "${symlink_path}" # use the timestamp of the original file
+            ((new_symlinks++))
+            log 3 "Created symlink: ${symlink_path} -> ${file}" "DEBUG"
         fi
     done
 
