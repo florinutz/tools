@@ -297,37 +297,22 @@ create_symlinks() {
 #######################################
 open_intellij() {
     if [[ "${OPEN_IDEA}" == "true" ]]; then
-        # Use exec to replace this process with IDEA, keeping terminal window open
-        # shellcheck disable=SC2093
-        exec idea "${TARGET_DIR}"
-        # Note: Code after exec will not be executed unless exec fails
-        log 0 "Failed to exec IntelliJ IDEA" "ERROR"
-        return ${E_IDEA}
+        log 1 "Launching IntelliJ IDEA with directory: ${TARGET_DIR}"
+
+        if [[ "${OPEN_IDEA}" == "true" ]]; then
+            # Use exec to replace this process with IDEA, keeping terminal window open
+            exec idea "${TARGET_DIR}"
+            # Note: Code after exec will not be executed unless exec fails
+            log 0 "Failed to exec IntelliJ IDEA" "ERROR"
+            return ${E_IDEA}
+        fi
+    else
+        log 1 "Skipping IntelliJ IDEA launch as requested"
     fi
 
     return ${E_SUCCESS}
 }
 
-#######################################
-# Cleanup function to handle errors and exit
-# Arguments:
-#   $1 - Exit code
-# Returns:
-#   None
-#######################################
-cleanup() {
-    local exit_code=$1
-
-    if [[ ${exit_code} -ne ${E_SUCCESS} ]]; then
-        log 0 "qidea execution failed with code ${exit_code}" "ERROR"
-    else
-        log 1 "Sync completed successfully:"
-        log 1 "  from: ${TMP_DIR}"
-        log 1 "  to:   ${TARGET_DIR}"
-    fi
-
-    exit "${exit_code}"
-}
 
 #######################################
 # Main function to orchestrate the workflow
@@ -343,9 +328,6 @@ qidea() {
     set -o errexit
     set -o pipefail
     set -o nounset
-
-    # Setup trap to handle errors
-    trap 'cleanup $?' EXIT
 
     log 2 "Starting qidea function execution..." "DEBUG"
 
@@ -372,11 +354,21 @@ qidea() {
         return ${E_GENERAL}
     fi
 
+    # Print success message
+    log 1 "Sync completed successfully:"
+    log 1 "  from: ${TMP_DIR}"
+    log 1 "  to:   ${TARGET_DIR}"
+    
     # Open IntelliJ IDEA
     if ! open_intellij; then
         return ${E_IDEA}
     fi
 
+    # If we reach here, it means we're in pull-only mode (--pull option)
+    if [[ "${OPEN_IDEA}" == "false" ]]; then
+        log 1 "Files are available in: ${TARGET_DIR}"
+    fi
+    
     return ${E_SUCCESS}
 }
 
