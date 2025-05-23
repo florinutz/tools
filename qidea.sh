@@ -232,6 +232,7 @@ sync_from_s3() {
 
     start_time=$(date +%s)
 
+    log 1 "Executing: rclone sync ${rclone_verbosity[*]} ${BUCKET_NAME}/${DATE_PATH}/ ${TMP_DIR} --progress --ignore-existing --transfers 8 --checkers 16 --stats 10s ${RCLONE_OPTS[*]}" "DEBUG"
     if ! rclone sync "${rclone_verbosity[@]}" "${BUCKET_NAME}/${DATE_PATH}/" "${TMP_DIR}" \
         --progress \
         --ignore-existing \
@@ -239,7 +240,6 @@ sync_from_s3() {
         --checkers 16 \
         --stats 10s \
         "${RCLONE_OPTS[@]}"; then
-
         log 0 "Failed to sync S3 bucket" "ERROR"
         return ${E_RCLONE}
     fi
@@ -319,7 +319,6 @@ qidea() {
     # Enable error tracing and exit on error
     set -o errexit
     set -o pipefail
-    set -o nounset
 
     log 2 "Starting qidea function execution..." "DEBUG"
 
