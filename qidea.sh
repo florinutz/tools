@@ -53,13 +53,6 @@ log() {
     fi
 }
 
-#######################################
-# Display help message
-# Arguments:
-#   None
-# Returns:
-#   None
-#######################################
 show_help() {
     sed -n 's/^# //p' "${BASH_SOURCE[0]}" | grep -v "!/usr/bin/env bash"
 }
