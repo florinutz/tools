@@ -25,7 +25,6 @@ VERBOSITY=""
 RCLONE_OPTS=()
 OPEN_IDEA=true
 
-# Error codes
 readonly E_SUCCESS=0
 readonly E_GENERAL=1
 readonly E_MKDIR=2
@@ -33,15 +32,6 @@ readonly E_RCLONE=3
 readonly E_IDEA=4
 readonly E_ARGS=5
 
-#######################################
-# Log messages with appropriate verbosity levels
-# Arguments:
-#   $1 - Required verbosity level to display this message
-#   $2 - Message to log
-#   $3 - Optional log level (INFO, WARN, ERROR, DEBUG)
-# Returns:
-#   None
-#######################################
 log() {
     local req_level=$1
     local message=$2
@@ -74,13 +64,6 @@ show_help() {
     sed -n 's/^# //p' "${BASH_SOURCE[0]}" | grep -v "!/usr/bin/env bash"
 }
 
-#######################################
-# Parse command line arguments
-# Arguments:
-#   All command line arguments ($@)
-# Returns:
-#   0 on success, non-zero on failure
-#######################################
 parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -139,13 +122,6 @@ parse_args() {
     return ${E_SUCCESS}
 }
 
-#######################################
-# Load configuration from file
-# Arguments:
-#   None
-# Returns:
-#   None
-#######################################
 load_config() {
     # Set defaults first
     BUCKET_NAME="${DEFAULT_BUCKET}"
@@ -168,13 +144,6 @@ load_config() {
     log 3 "Configuration: BUCKET_NAME=${BUCKET_NAME}, DATE_PATH=${DATE_PATH}, VERBOSITY=${VERBOSITY}" "DEBUG"
 }
 
-#######################################
-# Setup directories and prepare environment
-# Arguments:
-#   None
-# Returns:
-#   0 on success, non-zero on failure
-#######################################
 setup_directories() {
     TARGET_DIR="$(pwd)/buckets/${DATE_PATH}"
     log 1 "Target directory: ${TARGET_DIR}"
@@ -208,13 +177,6 @@ setup_directories() {
     return ${E_SUCCESS}
 }
 
-#######################################
-# Sync files from S3 using rclone
-# Arguments:
-#   None
-# Returns:
-#   0 on success, non-zero on failure
-#######################################
 sync_from_s3() {
     local start_time
     local end_time
@@ -222,7 +184,6 @@ sync_from_s3() {
 
     log 1 "Starting rclone sync from bucket ${BUCKET_NAME}/${DATE_PATH}/ to ${TMP_DIR}..."
 
-    # Add verbosity flags to rclone based on our verbosity level
     local rclone_verbosity=()
     if [[ ${VERBOSITY} -ge 3 ]]; then
         rclone_verbosity=("-vv")
@@ -251,13 +212,6 @@ sync_from_s3() {
     return ${E_SUCCESS}
 }
 
-#######################################
-# Create symlinks for JSON files
-# Arguments:
-#   None
-# Returns:
-#   0 on success, non-zero on failure
-#######################################
 create_symlinks() {
     local file_count=0
     local new_symlinks=0
@@ -280,13 +234,6 @@ create_symlinks() {
     return ${E_SUCCESS}
 }
 
-#######################################
-# Open IntelliJ IDEA with the target directory
-# Arguments:
-#   None
-# Returns:
-#   0 on success, non-zero on failure
-#######################################
 open_intellij() {
     if [[ "${OPEN_IDEA}" == "true" ]]; then
         log 1 "Launching IntelliJ IDEA with directory: ${TARGET_DIR}"
@@ -306,13 +253,6 @@ open_intellij() {
 }
 
 
-#######################################
-# Main function to orchestrate the workflow
-# Arguments:
-#   All command line arguments ($@)
-# Returns:
-#   0 on success, non-zero on failure
-#######################################
 qidea() {
     local exit_code
 
