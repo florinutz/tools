@@ -116,9 +116,18 @@ parse_args() {
 }
 
 load_config() {
-    # Set defaults first
-    BUCKET_NAME="${DEFAULT_BUCKET}"
-    VERBOSITY="${DEFAULT_VERBOSITY}"
+    # Save command-line specified values
+    local cmd_bucket="${BUCKET_NAME}"
+
+    # Set defaults if not already set
+    if [[ -z "${VERBOSITY}" ]]; then
+        VERBOSITY="${DEFAULT_VERBOSITY}"
+    fi
+
+    # Set default bucket if not specified on command line
+    if [[ -z "${cmd_bucket}" ]]; then
+        BUCKET_NAME="${DEFAULT_BUCKET}"
+    fi
 
     # Load from config file if it exists
     if [[ -f "${QIDEA_CONFIG}" ]]; then
@@ -127,6 +136,12 @@ load_config() {
         source "${QIDEA_CONFIG}"
     else
         log 2 "No configuration file found at ${QIDEA_CONFIG}" "DEBUG"
+    fi
+
+    # Command line arguments should take precedence over config file
+    if [[ -n "${cmd_bucket}" ]]; then
+        BUCKET_NAME="${cmd_bucket}"
+        log 2 "Using command-line specified bucket: ${BUCKET_NAME}" "DEBUG"
     fi
 
     # Set date path if not specified
@@ -176,6 +191,7 @@ sync_from_s3() {
     local duration
 
     log 1 "Starting rclone sync from bucket ${BUCKET_NAME}/${DATE_PATH}/ to ${TMP_DIR}..."
+    log 2 "Using bucket: ${BUCKET_NAME}" "DEBUG"
 
     local rclone_verbosity=()
     if [[ ${VERBOSITY} -ge 3 ]]; then
@@ -282,7 +298,7 @@ qidea() {
     log 1 "Sync completed successfully:"
     log 1 "  from: ${TMP_DIR}"
     log 1 "  to:   ${TARGET_DIR}"
-    
+
     # Open IntelliJ IDEA
     if ! open_intellij; then
         return ${E_IDEA}
@@ -292,7 +308,7 @@ qidea() {
     if [[ "${OPEN_IDEA}" == "false" ]]; then
         log 1 "Files are available in: ${TARGET_DIR}"
     fi
-    
+
     return ${E_SUCCESS}
 }
 
